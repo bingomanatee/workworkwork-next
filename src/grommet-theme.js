@@ -46,9 +46,21 @@ const theme = {
         dark: '#0030cc',
         light: '#1253dc',
       },
+      link: {
+        dark: '#002291',
+        light: '#1c5eff',
+      },
       'button-danger': {
         dark: '#990000',
         light: '#ff0000',
+      },
+      'ticket': {
+        dark: '#0f8000',
+        light: '#10a100',
+      },
+      'ticket-bg': {
+        dark: 'rgba(15,128,0,0.1)',
+        light: 'rgba(16,161,0,0.1)',
       },
       background: {
         dark: '#111111',
@@ -220,6 +232,11 @@ const theme = {
     },
     size: {
       small: {
+        border: {
+          radius: '0px',
+        },
+      },
+      medium: {
         border: {
           radius: '2px',
         },

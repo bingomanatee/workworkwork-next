@@ -1,129 +1,145 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Box,
-  Paragraph,
-  Spinner,
-  DataTable,
   Text,
-  Button,
-  Heading,
-  Layer,
-  FormField,
-  TextInput,
-  Form,
-  TextArea, Select,
+  Layer, Heading,
 } from 'grommet';
-import { Add, Close } from 'grommet-icons';
-import { createCtrl } from  '../model';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import { create, enums } from '@wonderlandlabs/collect';
+import { constants } from '@wonderlandlabs/carpenter';
+import ModelContext from '../components/ModelContext';
+import EditTask from '../components/EditTask';
+import TitleBar from '../components/TitleBar';
+import DelayedDataTable from '../components/DelayedDataTable';
+import { NodeSet } from '../components/TaskNodes';
 
-// import Link from 'next/link';
+const { binaryOperator } = constants;
 
-const TASK_COLS = [
-  {
-    property: 'id',
-    primary: true,
-    header: 'ID',
-    size: '12rem',
-    render: ({ id }) => (<Text truncate>{id}</Text>),
-  },
-  {
-    property: 'notes',
-    primary: true,
-    header: 'Notes',
-    size: 'large',
-    render: ({ notes }) => (<Text truncate>{notes || ''}</Text>),
-  },
-];
+const { FormEnum } = enums;
 
-const TaskTypes = () => {
+dayjs.extend(relativeTime);
+
+const Tasks = () => {
   const [taskTypes, setTT] = useState(null);
   const [tasks, setTasks] = useState(null);
+  const [tasksCounted, setTasksCounted] = useState(false);
   const [show, setShow] = React.useState();
-  const [ctrl, setCtrl] = React.useState({});
+  const model = useContext(ModelContext);
 
+  const TASK_COLS = [
+    {
+      property: 'id',
+      primary: true,
+      header: 'ID',
+      size: '12rem',
+      render: ({ id }) => (<Text truncate>{id}</Text>),
+    },
+    {
+      property: 'task_type_id',
+      header: 'Type',
+      render: ({ task_type_id }) => {
+        const type = taskTypes.find((type) => type.id === task_type_id);
+        return type ? type.name : '?';
+      },
+    },
+    {
+      property: 'createdAt',
+      header: 'Created At',
+      size: '20rem',
+      render: ({ createdAt }) => {
+        if (!createdAt) {
+          return '';
+        }
+        let date = createdAt;
+        if (typeof date === 'string') {
+          date = new Date(date);
+        }
+        const d = dayjs(date);
+       // const f = d.fromNow(true);
+        return d.format('D.M.YY - HH:mm');
+      },
+    },
+    {
+      property: 'status', header: 'Status',
+    },
+    {
+      property: 'childTasks',
+      header: 'Children',
+      size: '6rem',
+      render: (({ id }) => model.taskChildrenCount(id) || ''),
+    },
+    {
+      property: 'data',
+      header: 'Data',
+      render: (({ data }) => {
+        try {
+          if (create(data).form === FormEnum.object) {
+            return <Text size="xsmall">
+              <pre>{JSON.stringify(data, true, 2)
+                .replace(/,/i, ',\n')}</pre>
+            </Text>;
+          }
+        } catch (err) {
+        }
+        return '--';
+      }),
+    },
+  ];
   useEffect(() => {
-    const newCtrl = createCtrl();
-
-    const sub = newCtrl.base.stream({
+    const sub = model.base.stream({
       tableName: 'tasks',
     }, (records) => {
-      console.log('--- tasks streamed: ', records);
       setTasks(records.map(r => r.data));
     });
 
-    const subTypes = newCtrl.base.stream({
+    const subTypes = model.base.stream({
       tableName: 'task_types',
     }, (records) => {
-      console.log('--- task types streamed: ', records);
       setTT(records.map(r => r.data));
     });
 
-
-
-    newCtrl.pollTasks();
-    newCtrl.pollTaskTypes();
-
-    setCtrl(newCtrl);
+    model.pollTasks();
+    model.pollTaskTypes();
 
     return () => {
       sub.unsubscribe();
       subTypes.unsubscribe();
     };
-  }, []);
+  }, [model]);
 
   return (
     <Box pad="large">
-      <Heading level={1}>
-        Tasks
-        <div style={{ float: 'right' }}>
-          <Button
-            label="Add Task"
-            onClick={() => {
-               ctrl.initNewTask();
-               setShow(true);
-            }} icon={<Add/>}/>
-        </div>
-      </Heading>
+      <TitleBar
+        label="Tasks"
+        createLabel="Create Task"
+        onCreate={() => setShow(true)}
+      />
       <Box align="start">
-        {!tasks && <><Spinner/><Paragraph size="small">Loading...</Paragraph></>}
-        {tasks && <DataTable fill columns={TASK_COLS} data={tasks}/>}
+        <DelayedDataTable
+          data={tasks && tasks.filter((t) => !t.parent_task_id)}
+          cols={TASK_COLS}
+          tableParams={{
+            sort: { direction: 'desc', property: 'createdAt' },
+            rowDetails: (row) => (
+              <Box>
+                <Heading level={2}>Detail</Heading>
+                  <NodeSet root={row.id} />
+              </Box>
+            ),
+          }}
+        />
       </Box>
       {show && <Layer>
-        <Box pad="large" fill>
-          <Heading level={2}>Create a new Task
-            <div style={{ float: 'right' }}>
-            <Button plain icon={<Close/>} onClick={() => setShow(false)}/>
-          </div>
-          </Heading>
-          <Form
-            style={{ minWidth: '80vw', minHeight: '80vh' }}
-            value={ctrl.getNewTask().data}
-            onChange={ctrl.updateNewTask}
-            onSubmit={({ value }) => {
-              ctrl.createTask(value);
-              setShow(false);
-            }}
-          >
-            <FormField name="name" htmlFor="task_type-input-id" label="Type">
-              <Select
-id="task_type-input-id"
-                      options={taskTypes}
-                      labelKey="name"
-                      valueKey="id"
-                      name="task_type_id"/>
-            </FormField>
-            <FormField name="notes" htmlFor="notes-input-id" label="Notes">
-              <TextArea id="notes-input-id" name="notes"/>
-            </FormField>
-            <Box direction="row" gap="medium">
-              <Button type="submit" icon={<Add/>} primary label="Submit"/>
-            </Box>
-          </Form>
-        </Box>
+        <EditTask
+          update={() => {
+            setShow(false);
+          }
+          }/>
       </Layer>}
     </Box>
 
   );
 };
 
-export default TaskTypes;
+export default Tasks;

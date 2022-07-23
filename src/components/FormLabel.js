@@ -14,7 +14,8 @@ const FormLabel = ({ children, color='input' }) =>(
 );
 
   FormLabel.propTypes = {
-    children: PropTypes.element.isRequired,
+    children: PropTypes.oneOfType([PropTypes.element, PropTypes.string])
+      .isRequired,
     color: PropTypes.string,
   };
 
