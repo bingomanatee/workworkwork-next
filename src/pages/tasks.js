@@ -13,6 +13,8 @@ import EditTask from '../components/EditTask';
 import TitleBar from '../components/TitleBar';
 import DelayedDataTable from '../components/DelayedDataTable';
 import { NodeSet } from '../components/TaskNodes';
+import TaskEvents from '../components/TaskEvents';
+import JsonNode from '../components/JsonNode';
 
 const { binaryOperator } = constants;
 
@@ -72,18 +74,7 @@ const Tasks = () => {
     {
       property: 'data',
       header: 'Data',
-      render: (({ data }) => {
-        try {
-          if (create(data).form === FormEnum.object) {
-            return <Text size="xsmall">
-              <pre>{JSON.stringify(data, true, 2)
-                .replace(/,/i, ',\n')}</pre>
-            </Text>;
-          }
-        } catch (err) {
-        }
-        return '--';
-      }),
+      render: (({ data }) => <JsonNode expand={false} data={data} size="xsmall" else="---" />),
     },
   ];
   useEffect(() => {
@@ -99,10 +90,19 @@ const Tasks = () => {
       setTT(records.map(r => r.data));
     });
 
-    model.pollTasks();
+    let onTimeout = null;
+    function delayedPoll () {
+      model.pollTasks();
+      onTimeout = setTimeout(() => {
+        delayedPoll();
+      }, 60 * 1000);
+    }
+    delayedPoll();
+
     model.pollTaskTypes();
 
     return () => {
+      clearTimeout(onTimeout);
       sub.unsubscribe();
       subTypes.unsubscribe();
     };
@@ -117,13 +117,13 @@ const Tasks = () => {
       />
       <Box align="start">
         <DelayedDataTable
-          data={tasks && tasks.filter((t) => !t.parent_task_id)}
+          data={(tasks && taskTypes) && tasks.filter((t) => !t.parent_task_id)}
           cols={TASK_COLS}
           tableParams={{
             sort: { direction: 'desc', property: 'createdAt' },
             rowDetails: (row) => (
               <Box>
-                <Heading level={2}>Detail</Heading>
+                <TaskEvents task={row} />
                   <NodeSet root={row.id} />
               </Box>
             ),

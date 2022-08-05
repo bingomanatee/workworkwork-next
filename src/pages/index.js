@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Anchor, Box, Nav, Paragraph } from 'grommet';
-import { Tasks } from 'grommet-icons';
+import { Map, Tasks } from 'grommet-icons';
 
 const Index = () => (
     <Box pad="large">
@@ -16,6 +16,9 @@ const Index = () => (
         </Link>
         <Link href="/tasks" passHref>
           <Anchor label="Tasks" icon={<Tasks />} />
+        </Link>
+        <Link href="/locations" passHref>
+          <Anchor label="Locations" icon={<Map />} />
         </Link>
       </Nav>
     </Box>

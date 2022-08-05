@@ -2,10 +2,12 @@ import React, { useContext, useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import sortBy from 'lodash.sortby';
 import { Box, Button, Grid, Heading, Text } from 'grommet';
-import { FormDown, FormUp } from 'grommet-icons';
+import { FormDown, FormUp, Refresh } from 'grommet-icons';
 import { constants } from '@wonderlandlabs/carpenter';
-import NotificationBadge , {Effect} from 'react-notification-badge';
+import NotificationBadge , { Effect } from 'react-notification-badge';
 import ModelContext from './ModelContext';
+import TaskEvents from './TaskEvents';
+import JsonNode from './JsonNode';
 
 const { binaryOperator } = constants;
 
@@ -38,7 +40,6 @@ const Node = ({ child }) => {
   const [showData, setShow] = useState(false);
 
   const toggleShow = useMemo(() => () => {setShow(!showData);}, [showData]);
-
   const count = useMemo(() => model.taskChildrenCount(child.id), [child]);
 
   return <Box margin="small">
@@ -58,9 +59,14 @@ const Node = ({ child }) => {
       </Box>
       <Box gridArea="data" overflow="auto" >
         {
-          showData ? <div>
-            <Text size="xsmall"><pre>{JSON.stringify(child.data, true, 2)}</pre></Text>
-        </div> : ''
+          showData ? <Box direction="column" gap="small">
+            <JsonNode data={child.data} />
+              {child.task_events.length ? (<>
+                <Heading level={3}>Events</Heading>
+                <TaskEvents task={child} />
+              </>) : ''}
+            <Button icon={<Refresh />} onClick={() => model.repeatTask(child.id)} label="Repeat" />
+        </Box> : ''
         }
       </Box>
       <Box

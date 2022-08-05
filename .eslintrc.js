@@ -5,6 +5,7 @@ scripts.eslint.rules = {
   'camelcase': 'warn',
   'react/jsx-props-no-spreading': 'warn',
   'react/prop-types': 'off',
+  'no-param-reassign': 'warn',
 };
 module.exports = scripts.eslint;
 
