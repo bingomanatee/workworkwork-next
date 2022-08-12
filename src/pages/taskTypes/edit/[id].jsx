@@ -160,7 +160,7 @@ export default () => {
     </Layer>}
     {showAddChild && <Layer>
       <EditTaskType
-        parentId={id}
+        parent_id={id}
         update={() => {
           setShowAddChild(false);
         }

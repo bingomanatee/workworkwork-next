@@ -3,7 +3,7 @@ import { withSize } from 'react-sizeme';
 import _ from 'lodash';
 import { getRes0Indexes, geoToH3 } from 'h3-js';
 import * as PIXI from 'pixi.js';
-import { Box, Stack } from 'grommet';
+import { Box, Spinner, Stack } from 'grommet';
 import { constants } from '@wonderlandlabs/carpenter';
 import Map from 'ol/Map';
 import View from 'ol/View';
@@ -155,32 +155,33 @@ export class LocationMap extends Component {
     this.hexContainer.addChild(graphics);
   }
 
-
   drawHexes() {
     if (!this.model) {
       return;
     }
     const start = Date.now();
-   const records = this.model.base.table('hexes').query({
+    const records = this.model.base.table('hexes').query({
       tableName: 'hexes',
       where: {
         field: 'level',
         test: binaryOperator.eq,
         against: 2,
       },
-     joins: [
-       {
-         joinName: 'locHexes',
-       },
-     ],
+      joins: [
+        {
+          joinName: 'locHexes',
+        },
+      ],
     });
 
-   console.log('join took ', Date.now() - start, 'ms');
-   console.log('hexes:', this.model.base.table('hexes').data.size);
-   console.log('locations:', this.model.base.table('locations').data.size);
+    console.log('join took ', Date.now() - start, 'ms');
+    console.log('hexes:', this.model.base.table('hexes').data.size);
+    console.log('locations:', this.model.base.table('locations').data.size);
 
     records.forEach((hex) => {
-      if (hex.data.level !== 2) return;
+      if (hex.data.level !== 2) {
+        return;
+      }
       this.drawHex(hex);
     });
   }
@@ -227,7 +228,7 @@ export class LocationMap extends Component {
   }
 
   drawMap() {
-    this.map= new Map({
+    this.map = new Map({
       target: 'map-image',
       layers: [
         new TileLayer({
@@ -246,6 +247,9 @@ export class LocationMap extends Component {
   }
 
   render() {
+    if (!this.props.hexes) {
+      return <Spinner size="large"/>;
+    }
     const { height, width } = this.props.size;
     return (
       <ModelContext.Consumer>
@@ -254,33 +258,33 @@ export class LocationMap extends Component {
 
           return (
             <Box fill style={{ position: 'relative', minHeight: '50vh' }}>
-             <Stack guidingChild={1} interctiveChild={1}>
-              <Box fill>
-                <div
-id="map-image" style={{
-                  width: '100%',
-                  height: '100%',
-                  border: '1px solid red',
-                }} />
-              </Box>
+              <Stack guidingChild={1} interctiveChild={1}>
+                <Box fill>
+                  <div
+                    id="map-image" style={{
+                    width: '100%',
+                    height: '100%',
+                    border: '1px solid red',
+                  }}/>
+                </Box>
 
-             <Box>
-                <div
-                 id="hexes"
-                 ref={this.myRef}
-                 style={{
-                   width,
-                   height,
-                   overflow: 'hidden',
-                   pointerEvents: 'none',
-                 }}
-               />
-             </Box>
-          <div style={{ position: 'absolute', width: 300, top: 0, right: 0 }}>
-                <div>width: {this.props.size.width}</div>
-                <div>height: {this.props.size.height}</div>
-              </div>
-            </Stack>
+                <Box>
+                  <div
+                    id="hexes"
+                    ref={this.myRef}
+                    style={{
+                      width,
+                      height,
+                      overflow: 'hidden',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                </Box>
+                <div style={{ position: 'absolute', width: 300, top: 0, right: 0 }}>
+                  <div>width: {this.props.size.width}</div>
+                  <div>height: {this.props.size.height}</div>
+                </div>
+              </Stack>
             </Box>
           );
         }}

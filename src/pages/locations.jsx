@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo } from 'react';
-import { Box, Button, Heading, Layer, Tab, Tabs, Text } from 'grommet';
+import { Box, Button, Heading, Layer, Spinner, Tab, Tabs, Text } from 'grommet';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { create, enums } from '@wonderlandlabs/collect';
@@ -10,9 +10,7 @@ import TitleBar from '../components/TitleBar';
 import DelayedDataTable from '../components/DelayedDataTable';
 import { Iso3Label, IsoCountContext as IsoCountContext1 } from '../components/Iso3Label';
 import  LocationMap  from '../components/LocationMap';
-import CountryMap from "../components/CountryMap";
-
-const { binaryOperator } = constants;
+import CountryMap from '../components/CountryMap';
 
 const { FormEnum } = enums;
 
@@ -44,6 +42,7 @@ function countFields(data, field) {
 const Locations = () => {
   const [show, setShow] = React.useState(false);
   const [locations, setLocations] = React.useState(null);
+  const [hexes, setHexes] = React.useState(null);
   const [countries, setCountries] = React.useState(null);
   const [iso, setIso] = React.useState(null);
   const model = useContext(ModelContext);
@@ -103,6 +102,12 @@ const Locations = () => {
       setLocations(records.map(r => r.data));
     });
 
+    const hexSub =  model.base.stream({
+      tableName: 'hexes',
+    }, (records) => {
+      setHexes(records);
+    });
+
     let onTimeout = null;
 
     function delayedPoll() {
@@ -115,7 +120,7 @@ const Locations = () => {
     delayedPoll();
 
     model.pollLocations();
-
+    model.pollHexes();
     model.pollCountries();
 
     const countrySub = model.base.stream({
@@ -127,6 +132,7 @@ const Locations = () => {
     return () => {
       clearTimeout(onTimeout);
       sub.unsubscribe();
+      hexSub.unsubscribe();
       countrySub.unsubscribe();
     };
   }, [model]);
@@ -156,6 +162,10 @@ const Locations = () => {
     }
     return null;
   }, [iso, data]);
+
+  if (!hexes) {
+    return <Spinner size="large" />;
+  }
 
   return (
     <IsoCountContext1.Provider value={iso3Counts}>
@@ -190,12 +200,12 @@ const Locations = () => {
           </Tab>
           <Tab title="Map">
             <Box>
-              <LocationMap locations={locations} />
+              <LocationMap hexes={hexes} locations={locations} />
             </Box>
           </Tab>
           <Tab title="Countries">
             <Box>
-              <CountryMap locations={locations} countries={countries} />
+              <CountryMap hexes={hexes} locations={locations} countries={countries} />
             </Box>
           </Tab>
         </Tabs>

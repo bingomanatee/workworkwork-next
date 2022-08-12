@@ -18,12 +18,12 @@ const NONE = {
   name: '(no parent)',
 };
 
-export default ({ update, id, parentId = null }) => {
+export default ({ update, id, parent_id = null }) => {
   const model = useContext(ModelContext);
   const table = model.base.table('task_types');
 
   const [validation, setValidation] = useState({ valid: false });
-  const [taskType, setTaskType] = useState(table.createData({ parentId, unit: 'seconds' }));
+  const [taskType, setTaskType] = useState(table.createData({ parent_id, unit: 'seconds' }));
   const [taskTypes, setTaskTypes] = useState([]);
 
   // create a "temp" record - even if updating, clone the data temporarily

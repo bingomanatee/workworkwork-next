@@ -1,7 +1,5 @@
 import React, { Component } from 'react';
-import { withSize } from 'react-sizeme';
 import _ from 'lodash';
-import { getRes0Indexes, geoToH3 } from 'h3-js';
 import * as PIXI from 'pixi.js';
 import { Box, Button, Stack, Text, TextInput } from 'grommet';
 import { constants } from '@wonderlandlabs/carpenter';
@@ -17,39 +15,27 @@ const HEX_LINE_COLOR = PIXI.utils.rgb2hex([0.5, 0, 0]);
 const HAS_LOC_COLOR = PIXI.utils.rgb2hex([0.25, 0.125, 0]);
 const BLACK = PIXI.utils.rgb2hex([0, 0, 0]);
 const DARK_BLUE = PIXI.utils.rgb2hex([0, 0, 0.4]);
-const PIX_PER_DEG = 4;
+const PIX_PER_DEG = 5;
 const RED = PIXI.utils.rgb2hex([1, 0, 0]);
-const BEIGE = PIXI.utils.rgb2hex([0,0.5, 0,7]);
-
-function waitFor(time) {
-  return new Promise((done) => {
-    setTimeout(() => done(), time);
-  });
-}
+const BEIGE = PIXI.utils.rgb2hex([0, 0.5, 0, 7]);
 
 function lerp(n, min, max, scale = 1) {
   const dist = max - min;
   return scale * _.clamp((n - min) / dist, 0, 1);
 }
 
-function nearBounds(center, bounds) {
-  const west = bounds[0].ln - 2;
-  const east = bounds[1].ln + 2;
-  const south = bounds[1].lt - 2;
-  const north = bounds[0].lt + 2;
-
-  const [lt, ln] = center;
-  const match = ln >= west && ln <= east && lt >= south && lt <= north;
-  return match;
-}
-
 export class CountryMap extends Component {
   constructor(props) {
     super(props);
     this.myRef = React.createRef();
-    this.state = { height: '50vh' };
+
     this.changeCountry = this.changeCountry.bind(this);
-    this.analyzeCountry = this.analyzeCountry.bind(this);
+    this.beginWorkOnCurrentCountry = this.beginWorkOnCurrentCountry.bind(this);
+    this.state = {
+      country: null,
+      hexIndex: 0,
+      countryHexes: [],
+    };
   }
 
   componentDidMount() {
@@ -64,13 +50,7 @@ export class CountryMap extends Component {
     this.unmounted = true;
   }
 
-  get width() {
-    return 360 * PIX_PER_DEG;
-  }
-
-  get height() {
-    return 180 * PIX_PER_DEG;
-  }
+  // ------- utility
 
   degToXY(lat, lon) {
     if (typeof lat === 'object') {
@@ -80,6 +60,123 @@ export class CountryMap extends Component {
     const x = lerp(lon, minLat, maxLat, this.width);
     const y = this.height - lerp(lat, minLon, maxLon, this.height);
     return { x, y };
+  }
+
+  weighRect() {
+    try {
+      const imageData = this.getImageData();
+      const chunks = _.chunk(imageData.data, 4);
+
+      return chunks.map(([r, g, b, a]) => a * (255 - r))
+        .reduce((s, v) => s + v, 0);
+    } catch (err) {
+      return 0;
+    }
+  }
+
+  getImageData() {
+    const canvas = this.app.renderer.plugins.extract.canvas(this.countryContainer);
+    const context = canvas.getContext('2d');
+    const imgData = context.getImageData(0, 0, this.width, this.height);
+    return imgData;
+  }
+
+  /**
+   *
+   * @param hex {Object} // a record
+   * @param mode {string}
+   * @param iso3 {string|undefined}
+   * @returns {Graphics}
+   */
+  hexGraphics(hex, mode = 'line', iso3, color = BLACK) {
+    const graphics = new PIXI.Graphics();
+
+    hex.data.shapes.forEach((s) => {
+      if (mode === 'line') {
+        graphics.lineStyle(1, HEX_LINE_COLOR);
+      } else {
+        graphics.beginFill(color);
+      }
+
+      const points = s.points.map((p) => this.degToXY(p));
+      const lastPoint = points[points.length - 1];
+
+      graphics.moveTo(lastPoint.x, lastPoint.y);
+      points.forEach((p) => {
+        graphics.lineTo(p.x, p.y);
+      });
+
+      graphics.closePath();
+      graphics.endFill();
+    });
+
+
+    if (iso3) {
+      const alpha = this.model.hexStrength(hex, iso3);
+      console.log('alpha = ', alpha);
+      graphics.alpha = alpha;
+    }
+
+    return graphics;
+  }
+
+  get width() {
+    return 360 * PIX_PER_DEG;
+  }
+
+  get height() {
+    return 180 * PIX_PER_DEG;
+  }
+
+  // ------ general map drawing
+
+  drawCountryName(country) {
+    const { name, latitude, longitude } = country;
+    const nameSprite = new PIXI.Text(name, { fontFamily: 'Arial', fontSize: 20, fill: DARK_BLUE, align: 'center' });
+    const point = this.degToXY(latitude, longitude);
+    nameSprite.position = point;
+    this.countryContainer.addChild(nameSprite);
+    return nameSprite;
+  }
+
+  drawCountry(country, color = BLACK, alpha = 1) {
+    const { shapes } = country;
+    const countryShape = new PIXI.Container();
+    this.countryContainer.addChild(countryShape);
+    countryShape.alpha = alpha;
+    let g = new PIXI.Graphics();
+    let pointCount = 0;
+    for (const shape of shapes) {
+      if (shape.points.shape.length > 3) {
+        g.beginFill(color);
+        const points = shape.points.shape.map((pt) => this.degToXY(pt.lt, pt.ln));
+        const last = points[points.length - 1];
+        g.moveTo(last.x, last.y);
+        for (const p of points) {
+          g.lineTo(p.x, p.y);
+          pointCount += 1;
+        }
+        g.endFill();
+        if (pointCount > 40) {
+          countryShape.addChild(g);
+          g = new PIXI.Graphics();
+          pointCount = 0;
+        }
+      }
+    }
+    countryShape.addChild(g);
+    return countryShape;
+  }
+
+  drawHex(hex, mode = 'line', iso3) {
+    this.hexContainer.addChild(this.hexGraphics(hex, mode, iso3));
+  }
+
+  drawHexes() {
+    const records = this.props.hexes;
+    records.forEach((hex) => {
+      this.drawHex(hex);
+    });
   }
 
   drawFill() {
@@ -117,151 +214,9 @@ export class CountryMap extends Component {
 
   drawCountries() {
     this.countryContainer.removeChildren();
-    this.props.countries.forEach((country) => this.drawCountry(country.data));
-    this.drawCountry(this.model.base.table('countries').getData('BRA'), true);
-    this.drawCountry(this.model.base.table('countries').getData('CAN'), true);
-  }
-
-  drawCountry(country, drawShape = false, color = BLACK, alpha = 1) {
-    if (!country) {
-      return;
-    }
-    const { name, latitude, longitude, shapes, boundary } = country;
-    if (!drawShape) {
-      const nameSprite = new PIXI.Text(name, { fontFamily: 'Arial', fontSize: 20, fill: DARK_BLUE, align: 'center' });
-      const point = this.degToXY(latitude, longitude);
-      nameSprite.position = point;
-      this.countryContainer.addChild(nameSprite);
-    } else {
-      const countryShape = new PIXI.Container();
-      countryShape.alpha = alpha;
-      this.countryContainer.addChild(countryShape);
-      let g = new PIXI.Graphics();
-      let pointCount = 0;
-      g.beginFill(color);
-      for (const shape of shapes) {
-        if (shape.points.shape.length > 3) {
-          const points = shape.points.shape.map((pt) => this.degToXY(pt.lt, pt.ln));
-          const last = points[points.length - 1];
-          g.moveTo(last.x, last.y);
-          for (const p of points) {
-            g.lineTo(p.x, p.y);
-            pointCount += 1;
-          }
-          if (pointCount > 40) {
-            g.endFill();
-            countryShape.addChild(g);
-            g = new PIXI.Graphics();
-            g.beginFill(color);
-            pointCount = 0;
-          }
-        }
-      }
-      g.endFill();
-      /*    console.log('boundary', boundary);
-          g.lineStyle({ width: 2, color: RED });
-          const s = this.degToXY(country.boundary[0]);
-          const s2 = this.degToXY(country.boundary[1]);
-          s2.x -= s.x;
-          s2.y -= s.y;
-          console.log('drawing rect', s, s2);
-          g.drawRect(s.x, s.y, s2.x, s2.y);
-          g.closePath();
-          countryShape.addChild(g); */
-      return countryShape;
-    }
-  }
-
-  getImageData(s) {
-    const canvas = this.app.renderer.plugins.extract.canvas(this.countryContainer);
-    const context = canvas.getContext('2d');
-    const imgData = context.getImageData(0, 0, this.width, this.height);
-    return imgData;
-  }
-
-  /**
-   *
-   * @param hex {Object} // a record
-   * @param mode {string}
-   * @param iso3 {string|undefined}
-   * @returns {Graphics}
-   */
-  hexGraphics(hex, mode = 'line', iso3, color = BLACK) {
-    const graphics = new PIXI.Graphics();
-
-    if (mode === 'line') {
-      graphics.lineStyle(1, HEX_LINE_COLOR);
-      graphics.beginFill(HAS_LOC_COLOR);
-    } else {
-      graphics.beginFill(color);
-    }
-
-    hex.data.shapes.forEach((s) => {
-      if (s.width > 200) {
-        return;
-      }
-      const lastPoint = this.degToXY(...s.points[s.points.length - 1]);
-
-      graphics.moveTo(lastPoint.x, lastPoint.y);
-      s.points.forEach((ll) => {
-        const p = this.degToXY(...ll);
-        graphics.lineTo(p.x, p.y);
-      });
-      if (mode === 'line') {
-        graphics.closePath();
-      }
-    });
-
-    graphics.endFill();
-
-    if (iso3) {
-      if (hex.data.countryShares.has(iso3)) {
-        const base = hex.data.countryShares.get('_BASE_');
-        const share = hex.data.countryShares.get(iso3);
-        if (base <= 0 || share <= 0) {
-          graphics.alpha = 0;
-        } else {
-          graphics.alpha = share / base;
-        }
-      }
-    }
-
-    return graphics;
-  }
-
-  drawHex(hex, iso3) {
-    this.hexContainer.addChild(this.hexGraphics(hex, 'fill', iso3));
-  }
-
-  drawHexes() {
-    if (!this.model) {
-      return;
-    }
-    const start = Date.now();
-    const records = this.model.base.table('hexes').query({
-      tableName: 'hexes',
-      where: {
-        field: 'level',
-        test: binaryOperator.eq,
-        against: 2,
-      },
-      joins: [
-        {
-          joinName: 'locHexes',
-        },
-      ],
-    });
-    /*
-        console.log('join took ', Date.now() - start, 'ms');
-        console.log('hexes:', this.model.base.table('hexes').data.size);
-        console.log('locations:', this.model.base.table('locations').data.size); */
-
-    records.forEach((hex) => {
-      if (hex.data.level !== 2) {
-        return;
-      }
-      this.drawHex(hex);
-    });
+    this.props.countries.forEach((country) => this.drawCountryName(country.data));
+    this.drawCountry(this.model.base.table('countries').getData('BRA'), BLACK);
+    this.drawCountry(this.model.base.table('countries').getData('CAN'), BLACK);
   }
 
   draw() {
@@ -327,116 +282,159 @@ export class CountryMap extends Component {
     });
   }
 
+  // ----------- hex / country mapping
+
   changeCountry(event) {
     this.setState((state) => {
-      state.country = event.target.value;
+      state.iso3 = event.target.value;
       return state;
     });
   }
 
-  analyzeCountry(code) {
-    if ((!code || (typeof code !== 'string'))) {
-      code = this.state.country;
-    }
-    const country = this.model.base.table('countries').getData(code);
-    if (!country) {
-      console.log('cannot find code', code);
-      return;
-    }
-    this.hexContainer.alpha = 1;
-    this.filler.clear();
+  beginWorkOnCurrentCountry() {
     this.hexContainer.removeChildren();
     this.countryContainer.removeChildren();
-    //   console.log('bounds:', country.boundary);
-    const hexes = this.model.base.table('hexes').query({
-      tableName: 'hexes',
-      where: (record) => {
-        if (record.data.level !== 2) {
+    this.app.render();
+    requestAnimationFrame(() => {
+      this.setState((state) => {
+        const country = this.model.base.table('countries').getData(state.iso3);
+        const hexes = this.model.findHexesAround(country);
+
+        state.countryHexes = hexes;
+        state.country = country;
+
+        return { ...state, countryHexes: hexes, hexIndex: 0 };
+      }, () => {
+        this.workCountryHexes();
+      });
+    });
+  }
+
+  workCountryHexes() {
+    const { countryHexes, hexIndex } = this.state;
+    if (hexIndex >= countryHexes.length) {
+      this.allHexesDone();
+    } else {
+      console.log('workCurrentHexes: ', hexIndex, '/', countryHexes.length);
+      this.setState({ currentHex: countryHexes[hexIndex] }, () => {
+        this.workCurrentHex();
+      });
+    }
+  }
+
+  allHexesDone() {
+    this.drawCountryHexes();
+    this.app.render();
+    this.setState({ 'drawnHexes': this.state.iso3 });
+    setTimeout(() => {
+      this.nextCountry();
+    }, 1000);
+  }
+
+  /**
+   * after all the hexes have been analyzed,
+   * draw a representation of the country with hex weights
+   */
+  drawCountryHexes() {
+    const { country, countryHexes } = this.state;
+    this.filler.clear();
+    this.hexContainer.alpha = 1;
+    this.hexContainer.removeChildren();
+    this.countryContainer.removeChildren();
+    this.drawCountry(country, RED, 0.2);
+    countryHexes.filter((hex) => hex.data.countryShares.size > 0)
+      .forEach((hex) => {
+        this.drawHex(hex, 'fill', country.iso3);
+      });
+    this.app.render();
+  }
+
+  nextCountry() {
+    const { country } = this.state;
+    country.hexesDone = true;
+    const workableCountries = this.model.base.query({
+      tableName: 'countries',
+      where(record) {
+        const { hexesDone, hex_shares = [] } = record.data;
+        if (!hexesDone) {
           return false;
         }
-        return nearBounds(record.data.center, country.boundary);
+        if (!hex_shares.length) {
+          return false;
+        }
+        return true;
       },
     });
 
-    // console.log('matches:', hexes);
-    let index = 0;
-    const digestHexes = () => {
-      console.log('index = ', index);
-      if (index >= hexes.length) {
-        console.log('---- done');
-        this.setState({ render: 'done' }, () => {
-          this.drawCountry(country, true, RED, 0.2);
-          hexes.filter((hex) => hex.data.countryShares.size > 0)
-            .forEach((hex) => {
-              this.drawHex(hex, country.iso3);
-            });
-          requestAnimationFrame(() => {
-            this.app.render();
-          });
-        });
-        return;
-      }
-      const hex = hexes[index];
-      if (hex.data.status === 'new') {
-        this.analyzeCountryHex(hex, country);
-      } else if (hex.data.status === 'done') {
-        index += 1;
-      }
-      requestAnimationFrame(digestHexes);
-    };
-    requestAnimationFrame(digestHexes);
-
-  }
-
-  weighRect(rect) {
-    try {
-      const imageData = this.getImageData(rect);
-      const chunks = _.chunk(imageData.data, 4);
-
-      return chunks.map(([r, g, b, a]) => {
-        if (a && Math.random() < 0.1) console.log('opaque: ', r, g, b, a);
-        return a * (255 - r);
-      })
-        .reduce((s, v) => s + v, 0);
-    } catch (err) {
-      return 0;
+    if (workableCountries.length) {
+      this.setState((state) => {
+        state.iso3 = workableCountries[0].key;
+        return state;
+      }, () => this.beginWorkOnCurrentCountry());
     }
   }
 
-  analyzeCountryHex(hex, country) {
-    if (hex.data.status !== 'new') {
-      return;
-    }
+  findShareOfCurrentHex() {
+    const { country, currentHex } = this.state;
     this.countryContainer.removeChildren();
     const shape = this.drawCountry(country, true);
-
-    const hexImage = this.hexGraphics(hex, 'fill');
+    const hexImage = this.hexGraphics(currentHex, 'fill');
     shape.mask = new PIXI.MaskData(hexImage);
     this.app.render();
-    const rect = shape.getBounds();
+    return this.weighRect(shape, shape.getBounds());
+  }
 
-    const countryWeight = this.weighRect(shape, rect);
-    if (countryWeight) {
-      this.countryContainer.removeChildren();
-      requestAnimationFrame(() => {
-        hex.data.countryShares.set(country.iso3, countryWeight);
+  workCurrentHex() {
+    const { country, currentHex } = this.state;
+    requestAnimationFrame(() => {
+      const countryWeight = this.findShareOfCurrentHex();
+      if (countryWeight) {
+        currentHex.data.countryShares.set(country.iso3, countryWeight);
         this.countryContainer.removeChildren();
-        const hexFull = this.hexGraphics(hex, 'fill', null, BEIGE);
-        this.countryContainer.addChild(hexFull);
-        this.app.render();
+        if (!currentHex.data.countryShares.has('_BASE')) {
+          this.findCurrentHexBase();
+        } else {
+          this.finishCurrentHex();
+        }
+      } else {
+        this.finishCurrentHex();
+      }
+    });
 
-        const baseWeight = this.weighRect(hexFull.getBounds());
-        console.log('--------------- weight = ', countryWeight, 'base=', baseWeight, 'ratio', Math.round(countryWeight / baseWeight * 100));
-        hex.data.countryShares.set('_BASE_', baseWeight);
-        hex.data.status = 'done';
-      });
+  }
+
+  finishCurrentHex() {
+    const { countryHexes, hexIndex, iso3, currentHex } = this.state;
+    this.model.sendCurrentHexShare(iso3,
+      currentHex.key,
+      currentHex.data.countryShares.get(iso3),
+      currentHex.data.countryShares.get('_BASE_'));
+    if (countryHexes.length === hexIndex + 1) {
+      this.allHexesDone();
     } else {
-      hex.data.status = 'done';
+      this.setState({ hexIndex: hexIndex + 1 }, () => {
+        this.workCountryHexes();
+      });
     }
+  }
+
+  findCurrentHexBase() {
+    requestAnimationFrame(() => {
+      const { currentHex } = this.state;
+      this.countryContainer.removeChildren();
+      const hexFull = this.hexGraphics(currentHex, 'fill', null, BEIGE);
+      this.countryContainer.addChild(hexFull);
+      this.app.render();
+
+      const baseWeight = this.weighRect(hexFull.getBounds());
+      currentHex.data.countryShares.set('_BASE_', baseWeight);
+      this.finishCurrentHex();
+    });
   }
 
   render() {
     const { height, width, state } = this;
+    const { iso3 } = this.state;
     return (
       <ModelContext.Consumer>
         {(model) => {
@@ -446,8 +444,8 @@ export class CountryMap extends Component {
             <>
               <Box direction="row" gap="medium" margin="large">
                 <Text>Country {state.render || ''}</Text>
-                <TextInput name='country' value={state.country || ''} onChange={this.changeCountry}/>
-                <Button label="Analyze" primary onClick={this.analyzeCountry}/>
+                <TextInput name='country' value={iso3 || ''} onChange={this.changeCountry}/>
+                <Button label="Analyze" primary onClick={this.beginWorkOnCurrentCountry}/>
               </Box>
               <Box fill style={{ position: 'relative', width: `${width}px`, height: `${height}px` }}>
                 <Stack guidingChild={1} interctiveChild={1}>

@@ -2,14 +2,9 @@ import { createBase, constants } from '@wonderlandlabs/carpenter';
 import axios from 'axios';
 import { create, enums } from '@wonderlandlabs/collect';
 import { geoToH3, getRes0Indexes, h3ToChildren } from 'h3-js';
-import Hex from './Hex';
 
-const { TypeEnum  } = enums;
-const { binaryOperator, joinFreq  } = constants;
-
-const hexes = getRes0Indexes().map((hIndex) => ({
-    hIndex, level: 0,
-  }));
+const { TypeEnum } = enums;
+const { binaryOperator, joinFreq } = constants;
 
 
 const makeModel = () => createBase([
@@ -25,9 +20,9 @@ const makeModel = () => createBase([
     key: 'uid',
     dataCreator: (table, location) => {
       if (!(create(location.latitude).type === TypeEnum.number && create(location.longitude).type === TypeEnum.number)) {
-        location.hIndex = null;
+        location.hindex = null;
       } else {
-        location.hIndex = geoToH3(location.latitude , location.longitude, 2);
+        location.hindex = geoToH3(location.latitude, location.longitude, 2);
       }
 
       return location;
@@ -37,7 +32,10 @@ const makeModel = () => createBase([
     name: 'tasks-info', key: 'id',
   },
   {
-    name: 'hexes', key: 'hIndex', data: hexes, dataCreator: (table, input) => new Hex(input),
+    name: 'hexes', key: 'hindex', dataCreator: (table, input) => ({
+      ...input,
+      countryShares: new Map(),
+    }),
   },
   { name: 'countries', key: 'iso3' },
 ], {
@@ -49,7 +47,7 @@ const makeModel = () => createBase([
       },
       to: {
         tableName: 'locations',
-        key: 'hIndex',
+        key: 'hindex',
         frequency: joinFreq.noneOrMore,
       },
       name: 'locHexes',
@@ -57,24 +55,25 @@ const makeModel = () => createBase([
   ],
 });
 
-export default (apiRoot = 'http://localhost:3000') => {
+export default (API_ROOT = 'http://localhost:3000') => {
   const base = makeModel();
   const hexTable = base.table('hexes');
   hexTable.data.forEach((hex) => {
-    const childIndexes = h3ToChildren(hex.hIndex, 2);
-    childIndexes.forEach(hIndex => {
-      hexTable.add({ hIndex, level: 2 });
+    const childIndexes = h3ToChildren(hex.hindex, 2);
+    childIndexes.forEach(hindex => {
+      hexTable.add({ hindex, level: 2 });
     });
   });
 
-  const TASK_TYPE_ROOT = `${apiRoot}/task-types`;
-  const TASK_ROOT = `${apiRoot}/tasks`;
+  const TASK_TYPE_ROOT = `${API_ROOT}/task-types`;
+  const TASK_ROOT = `${API_ROOT}/tasks`;
 
+  const hexesUrl = (...args) => [API_ROOT, 'hexes', ...args].join('/');
   const taskTypeUrl = (...args) => [TASK_TYPE_ROOT, ...args].join('/');
   const taskUrl = (...args) => [TASK_ROOT, ...args].join('/');
 
   const model = {
-    apiRoot,
+    apiRoot: API_ROOT,
     newTypeId: null,
     newTaskTypeKey: null,
     ttChildrenFor(id) {
@@ -84,6 +83,47 @@ export default (apiRoot = 'http://localhost:3000') => {
           field: 'parent_id',
           test: binaryOperator.eq,
           against: id,
+        },
+      });
+    },
+
+    sendCurrentHexShare(iso3, hindex, share, max) {
+      if (share) {
+        axios.patch(hexesUrl(hindex), {
+          iso3,
+          strength: share / max,
+        });
+      }
+    },
+
+    nearBounds(center, bounds) {
+      const west = bounds[0].ln - 2;
+      const east = bounds[1].ln + 2;
+      const south = bounds[1].lt - 2;
+      const north = bounds[0].lt + 2;
+      const { lt, ln } = center;
+      const match = ln >= west && ln <= east && lt >= south && lt <= north;
+      return match;
+    },
+
+    hexStrength(hex, iso3) {
+      const hexBase = hex.data.countryShares.get('_BASE_') || 1;
+      const share = hex.data.countryShares.get(iso3) || 0;
+
+      if (hexBase <= 0 || share <= 0) {
+        return 0;
+      }
+      return share / hexBase;
+    },
+
+    findHexesAround(countryData) {
+      return base.table('hexes').query({
+        tableName: 'hexes',
+        where: (record) => {
+          if (record.data.level !== 3) {
+            return false;
+          }
+          return this.nearBounds({ ln: record.data.longitude, lt: record.data.latitude }, countryData.boundary);
         },
       });
     },
@@ -139,6 +179,11 @@ export default (apiRoot = 'http://localhost:3000') => {
 
         base.table('task_types').addMany(response.data);
       }),
+    pollHexes: () => axios.get(hexesUrl('level', 3))
+      .then((response) => {
+
+        base.table('hexes').addMany(response.data);
+      }),
     // -------- TASKS
     pollTasks: () => axios.get(`${model.apiRoot}/tasks`)
       .then((response) => {
@@ -154,7 +199,6 @@ export default (apiRoot = 'http://localhost:3000') => {
         .then(() => model.pollTasks());
     },
     repeatTask(id) {
-      console.log('repeating', id);
       axios.post(taskUrl(id))
         .then(() => this.pollTasks());
     },
@@ -168,12 +212,6 @@ export default (apiRoot = 'http://localhost:3000') => {
       axios.get(`${model.apiRoot}/locations`)
         .then((response) => {
           base.table('locations').addMany(response.data);
-        });
-    },
-    pollHexes() {
-      axios.get(`${model.apiRoot}/hexes`)
-        .then((response) => {
-          base.table('hexes').addMany(response.data);
         });
     },
     pollCountries() {

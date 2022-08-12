@@ -20,10 +20,10 @@ class Shape {
 
 export default class Hex {
 
-  constructor({ hIndex, level }) {
-    this.hIndex = hIndex;
-    this.boundary = h3ToGeoBoundary(hIndex);
-    this.center = h3ToGeo(hIndex);
+  constructor({ hindex, level }) {
+    this.hindex = hindex;
+    this.boundary = h3ToGeoBoundary(hindex);
+    this.center = h3ToGeo(hindex);
     this.level = level || 0;
   }
 
