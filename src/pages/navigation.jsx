@@ -3,10 +3,10 @@ import Link from 'next/link';
 import { Anchor, Box, Nav, Paragraph } from 'grommet';
 import { Map, Tasks } from 'grommet-icons';
 
-const Index = () => (
+const Navigation = () => (
     <Box pad="large">
       <Paragraph>
-       A task runner
+       An analytics engine describing the Covid pogress
       </Paragraph>
       <Nav direction="column" align="start">
         {/* Need to pass href because of:
@@ -24,4 +24,4 @@ const Index = () => (
     </Box>
 );
 
-export default Index;
+export default Navigation;

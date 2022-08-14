@@ -30,6 +30,7 @@ export class CountryMap extends Component {
     this.myRef = React.createRef();
 
     this.changeCountry = this.changeCountry.bind(this);
+    this.nextCountry = this.nextCountry.bind(this);
     this.beginWorkOnCurrentCountry = this.beginWorkOnCurrentCountry.bind(this);
     this.state = {
       country: null,
@@ -315,7 +316,6 @@ export class CountryMap extends Component {
     if (hexIndex >= countryHexes.length) {
       this.allHexesDone();
     } else {
-      console.log('workCurrentHexes: ', hexIndex, '/', countryHexes.length);
       this.setState({ currentHex: countryHexes[hexIndex] }, () => {
         this.workCurrentHex();
       });
@@ -349,28 +349,35 @@ export class CountryMap extends Component {
     this.app.render();
   }
 
-  nextCountry() {
+ async nextCountry() {
     const { country } = this.state;
-    country.hexesDone = true;
+    if (country) country.hexesDone = true;
+    await this.model.pollCountries();
     const workableCountries = this.model.base.query({
       tableName: 'countries',
       where(record) {
-        const { hexesDone, hex_shares = [] } = record.data;
-        if (!hexesDone) {
+        const { hexesDone = false, hex_shares = [] } = record.data;
+        if (hexesDone) {
           return false;
         }
-        if (!hex_shares.length) {
+        if (hex_shares.length) {
           return false;
         }
         return true;
       },
     });
 
+    console.log('remaining countries:', workableCountries.length);
+
     if (workableCountries.length) {
+
       this.setState((state) => {
-        state.iso3 = workableCountries[0].key;
+        const byPop = _.sortBy(workableCountries, (c => c.data.population * -1)).slice(0, 10);
+        state.iso3 = _.shuffle(byPop).pop().key;
         return state;
       }, () => this.beginWorkOnCurrentCountry());
+    } else {
+      console.log('---- all countries found');
     }
   }
 
@@ -446,6 +453,7 @@ export class CountryMap extends Component {
                 <Text>Country {state.render || ''}</Text>
                 <TextInput name='country' value={iso3 || ''} onChange={this.changeCountry}/>
                 <Button label="Analyze" primary onClick={this.beginWorkOnCurrentCountry}/>
+                <Button label="Next" primary onClick={this.nextCountry}/>
               </Box>
               <Box fill style={{ position: 'relative', width: `${width}px`, height: `${height}px` }}>
                 <Stack guidingChild={1} interctiveChild={1}>

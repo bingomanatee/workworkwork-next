@@ -2,10 +2,37 @@ import { createBase, constants } from '@wonderlandlabs/carpenter';
 import axios from 'axios';
 import { create, enums } from '@wonderlandlabs/collect';
 import { geoToH3, getRes0Indexes, h3ToChildren } from 'h3-js';
+import dayjs from 'dayjs';
+import Color from 'colorjs.io';
 
 const { TypeEnum } = enums;
 const { binaryOperator, joinFreq } = constants;
+const PIVOT_DATE_FORMAT = 'DD/MM/YYYY';
 
+export const BLACK = new Color('p3', [0, 0.2, 0]);
+const THOUSANDCOLOR = new Color('p3', [0, 0, 0.333])
+const TENTHOUSANDCOLOR = new Color('p3', [0, 0.5, 0.333])
+const HUNDREDTHOUSANDCOLOR = new Color('p3', [0.75, 0.75, 0]);
+const BILLIONCOLOR = new Color('p3', [1, 0.5, 0]);
+const WHITE = new Color('p3', [1, 1, 1]);
+const SPACE = { space: 'lch', outputSpace: 'srgb' };
+
+const range1000 = BLACK.range(THOUSANDCOLOR, SPACE);
+const range10k = THOUSANDCOLOR.range(TENTHOUSANDCOLOR, SPACE);
+const range100k = TENTHOUSANDCOLOR.range(HUNDREDTHOUSANDCOLOR, SPACE);
+const range1b = HUNDREDTHOUSANDCOLOR.range(BILLIONCOLOR, SPACE);
+
+class FieldSummary {
+  constructor(table1, info) {
+    const { iso3, data, date, field, st, offset } = info;
+    this.iso3 = iso3;
+    this.date = dayjs(date, PIVOT_DATE_FORMAT);
+    this.st = dayjs(st, PIVOT_DATE_FORMAT);
+    this.data = data;
+    this.field = field;
+    this.offset = offset;
+  }
+}
 
 const makeModel = () => createBase([
   {
@@ -30,6 +57,17 @@ const makeModel = () => createBase([
   },
   {
     name: 'tasks-info', key: 'id',
+  },
+  {
+    name: 'geojson',
+  },
+  {
+    name: 'pivots', dataCreator(table, info) {
+      return new FieldSummary('table', info);
+    },
+    keyProvider: (record) => {
+      return `${record.iso3}-${record.field}`
+    }
   },
   {
     name: 'hexes', key: 'hindex', dataCreator: (table, input) => ({
@@ -71,6 +109,15 @@ export default (API_ROOT = 'http://localhost:3000') => {
   const hexesUrl = (...args) => [API_ROOT, 'hexes', ...args].join('/');
   const taskTypeUrl = (...args) => [TASK_TYPE_ROOT, ...args].join('/');
   const taskUrl = (...args) => [TASK_ROOT, ...args].join('/');
+  const countryUrl = (...args) => [API_ROOT, 'countries', ...args].join('/');
+  const pivotUrl = (...args) => [API_ROOT, 'pivot-summary/summary', ...args].join('/');
+
+  const ranges = [
+    { max: 10 ** 2, range: range1000 },
+    { max: 10 ** 4, range: range10k },
+    { max: 10 ** 5, range: range100k },
+    { max: 10 ** 6, range: range1b },
+  ]
 
   const model = {
     apiRoot: API_ROOT,
@@ -85,6 +132,19 @@ export default (API_ROOT = 'http://localhost:3000') => {
           against: id,
         },
       });
+    },
+
+    valueToColor(n) {
+      for (let index = 0; index < ranges.length; ++index) {
+        let { max, range } = ranges[index]
+        if (n <= max) {
+          let min = index ? ranges[index - 1].max  : 0;
+          const color = range((n - min) / (max - min));
+
+          return color;
+        }
+      }
+      return WHITE
     },
 
     sendCurrentHexShare(iso3, hindex, share, max) {
@@ -126,6 +186,24 @@ export default (API_ROOT = 'http://localhost:3000') => {
           return this.nearBounds({ ln: record.data.longitude, lt: record.data.latitude }, countryData.boundary);
         },
       });
+    },
+
+    getField(field) {
+      return axios.get(pivotUrl(field))
+        .then((result) => {
+          const records = result.data.map(p => {
+            return { ...p, field };
+          });
+          base.table('pivots').addMany(records);
+          return base.table('pivots').query({
+            tableName: 'pivots',
+            where: {
+              field: 'field',
+              test: binaryOperator.eq,
+              against: field
+            }
+          })
+        });
     },
 
     taskChildrenCount(id) {
@@ -209,15 +287,24 @@ export default (API_ROOT = 'http://localhost:3000') => {
     },
     base,
     pollLocations() {
-      axios.get(`${model.apiRoot}/locations`)
+      return axios.get(`${model.apiRoot}/locations`)
         .then((response) => {
           base.table('locations').addMany(response.data);
         });
     },
     pollCountries() {
-      axios.get(`${model.apiRoot}/countries`)
+      return axios.get(`${model.apiRoot}/countries`)
         .then((response) => {
           base.table('countries').addMany(response.data);
+        });
+    },
+    getGeoJson() {
+      return axios.get(countryUrl('geojson'))
+        .then(({ data }) => {
+          base.table('geojson').addMany(data.features);
+          console.log('--- geojson saved:', base.table('geojson').data);
+          const q = base.table('geojson').query({ tableName: 'geojson' });
+          return q.map(({ data }) => data);
         });
     },
   };

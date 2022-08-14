@@ -49,27 +49,13 @@ const Locations = () => {
 
   const LOC_COLS = [
     {
-      property: 'uid',
-      primary: true,
-      header: 'UID',
-      size: '12rem',
-    },
-    {
       property: 'iso3',
       header: 'ISO',
       render: (location) => (<Iso3Label onClick={() => setIso(location.iso3)} iso3={location.iso3}/>),
     },
     {
-      property: 'admin2',
-      header: 'Admin',
-    },
-    {
-      property: 'province_state',
-      header: 'State/P',
-    },
-    {
-      property: 'country_region',
-      header: 'Country/R',
+      property: 'name',
+      header: 'Name',
     },
     {
       property: 'latitude',
@@ -86,6 +72,12 @@ const Locations = () => {
       header: 'Pop',
       size: 'small',
     },
+    {
+      property: 'hex_shares', header: 'Hexes',
+      size: 'f', render: (data) => {
+        return data.hex_shares.length || 0;
+      },
+    },
   ];
 
   const COLS = useMemo(() => {
@@ -97,7 +89,7 @@ const Locations = () => {
 
   useEffect(() => {
     const sub = model.base.stream({
-      tableName: 'locations',
+      tableName: 'countries',
     }, (records) => {
       setLocations(records.map(r => r.data));
     });
@@ -108,18 +100,6 @@ const Locations = () => {
       setHexes(records);
     });
 
-    let onTimeout = null;
-
-    function delayedPoll() {
-      model.pollLocations();
-      onTimeout = setTimeout(() => {
-        delayedPoll();
-      }, 60 * 1000);
-    }
-
-    delayedPoll();
-
-    model.pollLocations();
     model.pollHexes();
     model.pollCountries();
 
@@ -130,7 +110,6 @@ const Locations = () => {
     });
 
     return () => {
-      clearTimeout(onTimeout);
       sub.unsubscribe();
       hexSub.unsubscribe();
       countrySub.unsubscribe();
@@ -180,7 +159,7 @@ const Locations = () => {
                 <b>Subgroup</b>: {subgroup}, <b>iso</b>: {iso}
               </Text>
             </Box>
-            <Box align="start">
+            <Box align="start" overflow="auto">
               {iso ? <Box fill="horizontal" direction="row" justify="between">
                 <Heading level="3">Viewing locations in iso &quot;{iso}&quot;</Heading>
                 <Button label="View All ISOs" onClick={() => setIso(null)}/>

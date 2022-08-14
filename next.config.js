@@ -1,9 +1,7 @@
-/**
- * @type {import('next').NextConfig}
- */
+/** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
-  resolve: { extensions: ['', '.js', '.jsx','.css'], 'root': __dirname },
+  reactStrictMode: true,
+  swcMinify: true,
 };
 
 module.exports = nextConfig;
