@@ -9,18 +9,20 @@ const { TypeEnum } = enums;
 const { binaryOperator, joinFreq } = constants;
 const PIVOT_DATE_FORMAT = 'DD/MM/YYYY';
 
-export const BLACK = new Color('p3', [0, 0.2, 0]);
-const THOUSANDCOLOR = new Color('p3', [0, 0, 0.333])
-const TENTHOUSANDCOLOR = new Color('p3', [0, 0.5, 0.333])
-const HUNDREDTHOUSANDCOLOR = new Color('p3', [0.75, 0.75, 0]);
-const BILLIONCOLOR = new Color('p3', [1, 0.5, 0]);
+export const BLACK = new Color('p3', [0.05, 0, 0.01]);
+const THOUSANDCOLOR = new Color('p3', [0, 0, 0.25])
+const TENTHOUSANDCOLOR = new Color('p3', [0, 0.333, 0.2])
+const HUNDREDTHOUSANDCOLOR = new Color('p3', [0.5, 0.5, 0]);
+const BILLIONCOLOR = new Color('p3', [0.75, 0.125, 0.125]);
+const TENBILLIONCOLOR = new Color('p3', [0.8, 0.8, 1]);
 const WHITE = new Color('p3', [1, 1, 1]);
-const SPACE = { space: 'lch', outputSpace: 'srgb' };
+const SPACE = {  outputSpace: 'srgb' };
 
 const range1000 = BLACK.range(THOUSANDCOLOR, SPACE);
 const range10k = THOUSANDCOLOR.range(TENTHOUSANDCOLOR, SPACE);
 const range100k = TENTHOUSANDCOLOR.range(HUNDREDTHOUSANDCOLOR, SPACE);
 const range1b = HUNDREDTHOUSANDCOLOR.range(BILLIONCOLOR, SPACE);
+const range10b = BILLIONCOLOR.range(TENBILLIONCOLOR, SPACE);
 
 class FieldSummary {
   constructor(table1, info) {
@@ -115,10 +117,11 @@ export default () => {
   const pivotUrl = (...args) => [API_ROOT, 'pivot-summary/summary', ...args].join('/');
 
   const ranges = [
-    { max: 10 ** 2, range: range1000 },
-    { max: 10 ** 4, range: range10k },
-    { max: 10 ** 5, range: range100k },
-    { max: 10 ** 6, range: range1b },
+    { max: 10 ** 1.25, range: range1000 },
+    { max: 10 ** 3.5, range: range10k },
+    { max: 10 ** 4.5, range: range100k },
+    { max: 10 ** 5.5, range: range1b },
+    { max: 10 ** 7, range: range10b },
   ]
 
   const model = {

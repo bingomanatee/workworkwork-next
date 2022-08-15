@@ -16,7 +16,8 @@ export default function MyApp({ Component, pageProps }) {
             <Nav background="brand" size="small" direction="row" pad="small" gap="large">
               <Link href="/"><Home color="white"/></Link>
               <Heading size="small" pad="0" margin="0">
-                COVID 19 Progress over time </Heading>
+                COVID 19
+                Deaths </Heading>
             </Nav>
             <Component {...pageProps} />
           </PageContent>

@@ -1,18 +1,19 @@
 import { useContext, useEffect, useMemo, useState } from 'react';
-import { Box, Button, Layer, Select, Spinner, Stack, Text } from 'grommet';
+import { Box, Button, Layer, Select, Spinner, Text } from 'grommet';
 import { Canvas, useThree } from 'react-three-fiber';
 import ModelContext from '../components/ModelContext';
 import { a, useSpring } from '@react-spring/three'
 import * as THREE from 'three';
 import { useDrag } from 'react-use-gesture';
-import { Leaf, isNum } from '@wonderlandlabs/forest';
+import { Leaf } from '@wonderlandlabs/forest';
 import dayjs from "dayjs";
-const isSameOrAfter = require('dayjs/plugin/isSameOrAfter');
-import _ from 'lodash';
 import { BLACK } from "../components/model";
+import { DataScale } from "../components/DataScale";
+
+const isSameOrAfter = require('dayjs/plugin/isSameOrAfter');
 dayjs.extend(isSameOrAfter)
 
-const CONTINENTS = ['all', 'Africa', 'Europe', 'North America', 'Asia', 'Australia'];
+const CONTINENTS = ['all', 'Africa', 'Europe', 'Americas', 'Asia'];
 
 let ThreeGlobe = null;
 if (typeof window !== 'undefined') {
@@ -55,6 +56,24 @@ const GlobeView = () => {
           let date = dayjs(new Date(2020, 0, 1));
           return date.add(time, 'd');
         },
+        resolution({continent}) {
+          switch (continent) {
+            case 'Europe':
+              return 4;
+              break;
+
+            case 'Americas':
+              return 3;
+              break;
+
+            case 'Africa':
+              return 3;
+              break;
+
+            default:
+              return 2;
+          }
+        },
         features({ geoJson, continent }) {
           if (!geoJson) {
             return null;
@@ -63,6 +82,15 @@ const GlobeView = () => {
             return geoJson;
           }
           const some = geoJson.filter((f) => {
+            if (f.properties.WB_A3 === 'RUS') {
+              return continent === 'Asia'
+            }
+            if (continent === 'Americas') {
+              return f.properties.CONTINENT === 'North America' ||  f.properties.CONTINENT === 'South America'
+            }
+            if (continent === 'Asia') {
+              if (f.properties.CONTINENT === 'Oceania') return true;
+            }
             return f.properties.CONTINENT === continent
           });
 
@@ -71,6 +99,9 @@ const GlobeView = () => {
       },
 
       actions: {
+        newContinent(leaf, continent) {
+          leaf.do.setContinent(continent);
+        },
         colorFn (leaf, country) {
           const {properties} = country;
           const iso = properties.WB_A3;
@@ -96,6 +127,7 @@ const GlobeView = () => {
       },
         toggleAnimate(leaf) {
           leaf.do.setAnimate(!leaf.value.animate);
+          leaf.do.setTime(0);
           if (leaf.value.animate) {
             leaf.do.next();
           }
@@ -137,7 +169,7 @@ const GlobeView = () => {
 
   const [state, setState] = useState(null);
 
-  const { geoJson, continent = 'all', time, animate, $currentDate, $features } = (state || {});
+  const { geoJson, changing, continent = 'all', time, animate, $currentDate, $features , $resolution } = (state || {});
 
   const globe = useMemo(() => {
     if ((!ThreeGlobe) || (!leaf.selector('features'))) {
@@ -146,87 +178,18 @@ const GlobeView = () => {
     const globe = new ThreeGlobe({ animateIn: false })
       .globeImageUrl('//unpkg.com/three-globe/example/img/earth-dark.jpg')
       .hexPolygonsData(leaf.selector('features'))
-      .hexPolygonResolution(continent === 'all' ? 3 : 4)
+      .hexPolygonResolution($resolution)
       .hexPolygonMargin(0.1)
       .hexPolygonColor(leaf.do.colorFn);
-    /*.hexPolygonLabel(({ properties: d }) => `
-        <b>${d.ADMIN} (${d.ISO_A2})</b> <br />
-        Population: <i>${d.POP_EST} </i>
-      `);*/
+    console.log('--- created a new globe');
     return globe;
-  }, [continent, geoJson, ThreeGlobe]);
+  }, [continent, geoJson, ThreeGlobe, changing]);
 
   useEffect(() => {
     if (globe) {
-      console.log('--- advancing features')
       globe.hexPolygonsData([...$features]);
     }
-
   }, [time, globe, continent])
-
-  /*  const [geoJson, setGJ] = useState(null);
-    const [time, setTime] = useState(0);
-    const colorFn = useMemo(() => () => `#${Math.round(Math.random() * (2 ** 24)).toString(16).padStart(6, '0')}`, []);
-    const [globeColors, setGC] = useState([]);
-    const [continent, setCon] = useState('Asia');
-
-    const features = useMemo(() => {
-      if (!geoJson) {
-        return null;
-      }
-      if (continent === 'all') {
-        return geoJson;
-      }
-      const some = geoJson.filter((f) => {
-        return f.properties.CONTINENT === continent
-      });
-      console.log('some: ', some);
-      return some;
-    }, [geoJson, continent])
-  */
-
-/*  const Globe = useMemo(() => {
-    if ((!ThreeGlobe) || (!$features)) {
-      return null;
-    }
-    const globe = new ThreeGlobe({ animateIn: false })
-      .globeImageUrl('//unpkg.com/three-globe/example/img/earth-dark.jpg')
-      .hexPolygonsData($features)
-      .hexPolygonResolution(continent === 'all' ? 3 : 4)
-      .hexPolygonMargin(0.1)
-      .hexPolygonColor(leaf.do.colorFn);
-    /!*.hexPolygonLabel(({ properties: d }) => `
-        <b>${d.ADMIN} (${d.ISO_A2})</b> <br />
-        Population: <i>${d.POP_EST}</i>
-      `);*!/
-    return globe;
-  }, [continent]);*/
-
-/*  useEffect(() => {
-    let animate = true;
-
-    function changeData() {
-      if (globe) {
-        globe.hexPolygonsData([...$features]);
-      }
-      if (animate) {
-        requestAnimationFrame(changeData);
-      }
-    }
-
-    changeData();
-    return () => animate = false;
-  }, [globe])*/
-
-  /*  useEffect(() => {
-      model.getGeoJson()
-        .then((data) => {
-          console.log('--- data fetched:', data);
-          setGJ(data);
-
-
-        });
-    }, []);*/
 
   if (!geoJson || !globe) {
     return <Spinner size="large"/>;
@@ -238,36 +201,41 @@ const GlobeView = () => {
         <ambientLight color="#cddbfe"/>
         <directionalLight color="#cddbfe"/>
         <pointLight position={[10, 10, 10]}/>
-        <mesh position={[-40, -20, -140]}>
-          <Inspector>
-            <primitive object={globe}/>
-          </Inspector>
-        </mesh>
+        {changing? null : (
+          <mesh position={[-20, -5, -180]}>
+            <Inspector>
+              <primitive object={globe}/>
+            </Inspector>
+          </mesh>
+        )}
       </Canvas>
     </div>
     <Layer plain position="top-right" modal={false} fill="horizontal">
       <Box style={{ zIndex: 10000 }} align="baseline" pad="small" direction="row-reverse" gap="medium"
            fill="horizontal">
-        <Box pad="small">
-          <Text color="white">Continent</Text>
-        </Box>
+
         <Box background="#FFF">
           <Select options={CONTINENTS} value={continent}
                   valueLabel={(option) => (<Box pad="2px" fill="horizontal" background="#FFF">
                     <Text>{option}</Text>
                   </Box>)}
 
-                  onChange={({ value }) => leaf.do.setContinent(value)}>
+                  onChange={({ value }) => leaf.do.newContinent(value)}>
             {(option) => (<Box pad="small" fill="horizontal" background="#FFF"><Text>{option}</Text></Box>)}
           </Select>
         </Box>
-
+        <Box pad="small">
+          <Text color="white">Continent</Text>
+        </Box>
         {
           <Button color="black" label={animate ? 'Stop' : 'Animate'} primary onClick={leaf.do.toggleAnimate}></Button>
        }
 
-        {animate ? <Text>{$currentDate.format('MMM DD YY')} ({time})</Text> : ''}
+        {animate ? <Text>{$currentDate.format('MMM DD YYYY')} </Text> : ''}
       </Box>
+    </Layer>
+    <Layer plain position="bottom-right" modal={false}>
+      <DataScale/>
     </Layer>
   </>;
 };
