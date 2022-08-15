@@ -93,7 +93,9 @@ const makeModel = () => createBase([
   ],
 });
 
-export default (API_ROOT = 'http://localhost:3000') => {
+const API_ROOT = 'http://54.149.3.112/' // : 'http://localhost:3000';
+
+export default () => {
   const base = makeModel();
   const hexTable = base.table('hexes');
   hexTable.data.forEach((hex) => {
