@@ -1,6 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from 'react';
 import { Box, Button, Layer, Select, Spinner, Text } from 'grommet';
-import { Canvas, useThree } from 'react-three-fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import ModelContext from '../components/ModelContext';
 import { a, useSpring } from '@react-spring/three'
 import * as THREE from 'three';
@@ -181,8 +181,7 @@ const GlobeView = () => {
       .hexPolygonResolution($resolution)
       .hexPolygonMargin(0.1)
       .hexPolygonColor(leaf.do.colorFn);
-    console.log('--- created a new globe');
-    return globe;
+     return globe;
   }, [continent, geoJson, ThreeGlobe, changing]);
 
   useEffect(() => {
