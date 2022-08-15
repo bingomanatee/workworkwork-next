@@ -6,7 +6,7 @@
   "private": true,
   "dependencies": {
     "@react-spring/three": "^9.5.2",
-    "@wonderlandlabs/carpenter": "1.0.5",
+    "@wonderlandlabs/carpenter": "latest",
     "@wonderlandlabs/collect": "latest",
     "@wonderlandlabs/forest": "^1.0.11",
     "axios": "^0.27.2",
@@ -32,7 +32,7 @@
     "react-use-gesture": "^9.1.3",
     "rxjs": "^7.5.5",
     "styled-components": "^5.0.0",
-    "three": "^0.143.0",
+    "thrwwee": "^0.143.0",
     "three-globe": "^2.24.6"
   },
   "scripts": {
