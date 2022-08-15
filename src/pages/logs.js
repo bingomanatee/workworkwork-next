@@ -3,9 +3,9 @@ import { Box } from "grommet";
 import DelayedDataTable from "../components/DelayedDataTable";
 
 const TASK_COLS = [
-  {property: id, label: 'ID'}
+  {property: 'id', label: 'ID'}
 ]
-export default () => {
+const Logs = ({tasks}) => {
 
 
      return (
@@ -19,3 +19,5 @@ export default () => {
     </Box>
       );
 }
+
+export default Logs;

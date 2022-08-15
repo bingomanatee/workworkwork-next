@@ -7,7 +7,7 @@ const TaskEvent = ({ event }) =>(
     <JsonNode data={event.data} />
   </div>
 );
-export default ({ task }) => (
+const TaskEvents = ({ task }) => (
   <Box fill="both" style={{ maxHeight: '20rem'}} overflow="scroll">
     <Box fill="both" >
     {
@@ -16,3 +16,5 @@ export default ({ task }) => (
     </Box>
   </Box>
 );
+
+export default TaskEvents;

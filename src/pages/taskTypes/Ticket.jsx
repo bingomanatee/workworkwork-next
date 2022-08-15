@@ -1,15 +1,16 @@
 import { Box, Grid, ResponsiveContext, Text } from 'grommet';
 import React, { useContext, useMemo } from 'react';
-import * as PropTypes from 'prop-types';
 import { getCell, getTaskTypeGrid, ROW_BOX } from '../../components/ux-constants';
 import { TicketCell } from '../../components/TicketCell';
 
-TicketCell.propTypes = { name: PropTypes.string };
 const Ticket = ({ current, children }) => {
   const size = useContext(ResponsiveContext);
   const GRID = useMemo(() => getTaskTypeGrid(size), [size]);
   const CELL = useMemo(() => getCell(size), [size]);
 
+  if (!current) {
+    return null;
+  }
   return (
     <Box
       {...ROW_BOX}

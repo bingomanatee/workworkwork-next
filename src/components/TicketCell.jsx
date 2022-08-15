@@ -1,7 +1,8 @@
 import React, { useContext, useMemo } from "react";
 import { Box, ResponsiveContext } from "grommet";
-import { getCell } from "./ux-constants";
+import { getCell, getTaskTypeGrid } from "./ux-constants";
 import LabelValue from "./LabelValue";
+import * as PropTypes from "prop-types";
 
 export function TicketCell({ name, item, children}) {
   const size = useContext(ResponsiveContext);
@@ -14,3 +15,5 @@ export function TicketCell({ name, item, children}) {
     </LabelValue>
   </Box>;
 }
+
+TicketCell.propTypes = { name: PropTypes.string };

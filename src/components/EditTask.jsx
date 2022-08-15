@@ -58,9 +58,8 @@ const EditTask = ({ id, update }) => {
             id="task_type-input-id"
             options={taskTypes}
             labelKey="name"
-            children={(option, _, __, { selected }) => (<OptionBox selected={selected} label={option.name} /> )}
             valueKey={{ key: 'id', reduce: true }}
-            name="task_type_id"/>
+            name="task_type_id">{(option, _, __, { selected }) => (<OptionBox selected={selected} label={option.name} /> )}</Select>
         </FormField>
         <FormField name="notes" htmlFor="notes-input-id" label="Notes">
           <TextArea id="notes-input-id" name="notes"/>

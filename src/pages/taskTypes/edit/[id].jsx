@@ -31,7 +31,7 @@ import EditButton from '../../../components/EditButton';
 import ParentButton from '../../../components/ParentButton';
 
 
-export default () => {
+const TaskById = () => {
   const [taskTypes, setTT] = useState([]);
   const [current, setCurrent] = useState(null);
   const [showEdit, setShowEdit] = useState(false);
@@ -168,3 +168,5 @@ export default () => {
     </Layer>}
   </Box>;
 };
+
+export default TaskById;

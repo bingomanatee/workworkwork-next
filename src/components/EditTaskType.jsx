@@ -18,7 +18,7 @@ const NONE = {
   name: '(no parent)',
 };
 
-export default ({ update, id, parent_id = null }) => {
+const EditTaskType = ({ update, id, parent_id = null }) => {
   const model = useContext(ModelContext);
   const table = model.base.table('task_types');
 
@@ -107,12 +107,12 @@ export default ({ update, id, parent_id = null }) => {
             labelKey="name"
             value={taskType.parent_id || 0}
             valueKey={{ key: 'id', reduce: true }}
-            children={(option, _, __, { selected }) => (<OptionBox selected={selected} label={option.name} /> )}
+
             onChange={({ value }) => {
               setTaskType({ ...taskType, parent_id: value });
             }}
             options={parentOptions}
-          />
+          >{(option, _, __, { selected }) => (<OptionBox selected={selected} label={option.name} /> )}</Select>
         </FormField> : ''}
         <Box direction="row" fill="horizontal" gap="medium" align="stretch">
           <Box width="50%">
@@ -136,3 +136,5 @@ export default ({ update, id, parent_id = null }) => {
     </Box>
   );
 };
+
+export default EditTaskType;
