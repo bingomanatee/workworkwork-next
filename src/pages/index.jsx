@@ -108,7 +108,7 @@ const GlobeView = () => {
           const key = `${iso}-deaths`;
           const pivot = model.base.table('pivots').getData(key);
           if (!pivot) {
-            return BLACK.toString('srgb');;
+            return BLACK.toString({format: 'srgb'});
           }
           const {offset, st, data} = pivot;
 
@@ -117,13 +117,15 @@ const GlobeView = () => {
           const pivotStartTime = dayjs(st).add(offset, 'd');
           const index = currentTime.diff(pivotStartTime, 'd');
 
-
-          if (index < 0) return BLACK.toString('srgb');
-
-          if (index >= data.length) {
-            return model.valueToColor(data[data.length - 1]);
+          if (index < 0) {
+            return BLACK.toString({format: 'srgb'});
           }
-          return model.valueToColor(data[index]).toString('srgb');
+          if (index >= data.length) {
+            return model.valueColor(data[data.length - 1]);
+          }
+          const color = model.valueColor(data[index]);
+          console.log('coloring ', iso, color);
+          return color;
       },
         toggleAnimate(leaf) {
           leaf.do.setAnimate(!leaf.value.animate);
@@ -160,6 +162,7 @@ const GlobeView = () => {
   useEffect(() => {
     const sub = leaf.subscribe(setState);
     leaf.do.loadGeoJson();
+    console.log('model colors: ', JSON.stringify([...model.valueColorSet().entries()]));
     return () => sub.unsubscribe();
   }, [leaf]);
 

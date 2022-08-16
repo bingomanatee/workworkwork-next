@@ -4,6 +4,9 @@
   "description": "A template for using Grommet with NextJS",
   "main": "src/pages/index.js",
   "private": true,
+  "engines" : {
+    "node" : ">=17.0.0"
+  },
   "dependencies": {
     "@react-spring/three": "^9.5.2",
     "@react-three/fiber": "^8.3.1",
@@ -39,7 +42,7 @@
     "build": "next build",
     "export": "yarn build && next export",
     "start": "next -p 3005",
-    "start:production-mode": "yarn build && yarn next start",
+    "start:production-mode": "yarn build && bash patch-frame.sh  && yarn next start",
     "lint": "eslint src",
     "lint-fix": "eslint src --fix"
   },
