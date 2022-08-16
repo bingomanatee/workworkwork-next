@@ -108,7 +108,7 @@ const GlobeView = () => {
           const key = `${iso}-deaths`;
           const pivot = model.base.table('pivots').getData(key);
           if (!pivot) {
-            return BLACK.toString('srgb');;
+            return BLACK.toString({format: 'hex'});;
           }
           const {offset, st, data} = pivot;
 
@@ -118,13 +118,12 @@ const GlobeView = () => {
           const index = currentTime.diff(pivotStartTime, 'd');
 
 
-          if (index < 0) return BLACK.toString('srgb');
+          if (index < 0) return BLACK.toString({format: 'hex'});
 
           if (index >= data.length) {
-            return model.valueColor(data[data.length - 1]);
+            return model.valueToColor(data[data.length - 1]).toString({format: 'hex'});
           }
-          const color = model.valueColor(data[index]);
-          console.log('coloring ', iso, color);
+          const color = model.valueToColor(data[index]).toString({format: 'hex'});
           return color;
       },
         toggleAnimate(leaf) {
