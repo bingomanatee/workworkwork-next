@@ -121,9 +121,11 @@ const GlobeView = () => {
           if (index < 0) return BLACK.toString('srgb');
 
           if (index >= data.length) {
-            return model.valueToColor(data[data.length - 1]);
+            return model.valueColor(data[data.length - 1]);
           }
-          return model.valueToColor(data[index]).toString('srgb');
+          const color = model.valueColor(data[index]);
+          console.log('coloring ', iso, color);
+          return color;
       },
         toggleAnimate(leaf) {
           leaf.do.setAnimate(!leaf.value.animate);
