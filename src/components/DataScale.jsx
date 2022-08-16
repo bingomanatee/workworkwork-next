@@ -14,9 +14,9 @@ export function DataScale() {
   return <Box direction="row" gap="2px" justify="stretch">
     {numbers.map((n) => (
       <Box key={n} direction="column" width="5rem" >
-        <Box justify="end" background={model.valueToColor(n).to('srgb').toString()} width="100%" height="2.5rem">
+        <Box justify="end" background={model.valueToColor(n).display()} width="100%" height="2.5rem">
           <Text textAlign="center" color="white" size="xsmall">{n}</Text>
-          <Text textAlign="center" color="grey" size="xsmall">{model.valueToColor(n).to('srgb').toString()}</Text>
+          <Text textAlign="center" color="grey" size="xsmall">{model.valueToColor(n).display()}</Text>
         </Box>
       </Box>
     ))}
