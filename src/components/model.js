@@ -3,26 +3,28 @@ import axios from 'axios';
 import { create, enums } from '@wonderlandlabs/collect';
 import { geoToH3, getRes0Indexes, h3ToChildren } from 'h3-js';
 import dayjs from 'dayjs';
-import Color from 'colorjs.io';
+import * as color from 'color';
+import _ from 'lodash';
 
 const { TypeEnum } = enums;
 const { binaryOperator, joinFreq } = constants;
 const PIVOT_DATE_FORMAT = 'DD/MM/YYYY';
 
-export const BLACK = new Color('p3', [0.05, 0, 0.01]);
-const THOUSANDCOLOR = new Color('p3', [0, 0, 0.25])
-const TENTHOUSANDCOLOR = new Color('p3', [0, 0.333, 0.2])
-const HUNDREDTHOUSANDCOLOR = new Color('p3', [0.5, 0.5, 0]);
-const BILLIONCOLOR = new Color('p3', [0.75, 0.125, 0.125]);
-const TENBILLIONCOLOR = new Color('p3', [0.8, 0.8, 1]);
-const WHITE = new Color('p3', [1, 1, 1]);
-const SPACE = {  outputSpace: 'srgb' };
+const toRGB = (list) => list.map((n) => _.clamp(Math.round(n * 255), 0, 255));
+export const BLACK = color.rgb(...toRGB([0.05, 0, 0.01]));
+const THOUSANDCOLOR = color.rgb(...toRGB([0, 0, 0.25]));
+const TENTHOUSANDCOLOR = color.rgb(...toRGB([0, 0.333, 0.2]));
+const HUNDREDTHOUSANDCOLOR = color.rgb(...toRGB([0.5, 0.5, 0]));
+const BILLIONCOLOR = color.rgb(...toRGB([0.75, 0.125, 0.125]));
+const TENBILLIONCOLOR = color.rgb(...toRGB([0.8, 0.8, 1]));
+const WHITE = color.rgb(...toRGB([1, 1, 1]));
+const SPACE = { outputSpace: 'srgb' };
 
-const range1000 = BLACK.range(THOUSANDCOLOR, SPACE);
-const range10k = THOUSANDCOLOR.range(TENTHOUSANDCOLOR, SPACE);
-const range100k = TENTHOUSANDCOLOR.range(HUNDREDTHOUSANDCOLOR, SPACE);
-const range1b = HUNDREDTHOUSANDCOLOR.range(BILLIONCOLOR, SPACE);
-const range10b = BILLIONCOLOR.range(TENBILLIONCOLOR, SPACE);
+const range1000 = (n) => BLACK.mix(THOUSANDCOLOR, n);
+const range10k = (n) => THOUSANDCOLOR.mix(TENTHOUSANDCOLOR, n);
+const range100k = (n) => TENTHOUSANDCOLOR.mix(HUNDREDTHOUSANDCOLOR, n);
+const range1b = (n) => HUNDREDTHOUSANDCOLOR.mix(BILLIONCOLOR, n);
+const range10b = (n) => BILLIONCOLOR.mix(TENBILLIONCOLOR, n);
 
 class FieldSummary {
   constructor(table1, info) {
@@ -189,6 +191,7 @@ export default () => {
     { max: 10 ** 7, range: range10b },
   ]
 
+
   const model = {
     apiRoot: API_ROOT,
     newTypeId: null,
@@ -214,11 +217,11 @@ export default () => {
       }, 'black');
     },
 
-    valueToColor(n) {
+    colorOf(n) {
       for (let index = 0; index < ranges.length; ++index) {
         let { max, range } = ranges[index]
         if (n <= max) {
-          let min = index ? ranges[index - 1].max  : 0;
+          let min = index ? ranges[index - 1].max : 0;
           const color = range((n - min) / (max - min));
 
           return color;
@@ -400,6 +403,7 @@ export default () => {
         });
     },
   };
+  model.valueToColor = _.memoize((n) => model.colorOf(n).hex())
 
   return model;
 };
