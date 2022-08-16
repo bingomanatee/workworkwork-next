@@ -39,7 +39,7 @@
     "build": "next build",
     "export": "yarn build && next export",
     "start": "next -p 3005",
-    "start:production-mode": "yarn build && yarn next start",
+    "start:production-mode": "yarn build && bash patch-frame.sh  && yarn next start",
     "lint": "eslint src",
     "lint-fix": "eslint src --fix"
   },
